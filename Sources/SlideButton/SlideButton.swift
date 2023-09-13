@@ -12,6 +12,8 @@ public struct SlideButton: View {
     private let title: String
     private let callback: () async -> Void
     
+    private let titleOnEnd: String?
+    
     private let styling: Styling
     
     @GestureState private var offset: CGFloat
@@ -25,17 +27,21 @@ public struct SlideButton: View {
     ///   - title: The title of the slide button.
     ///   - styling: The styling options to customize the appearance of the slide button. Default is `.default`.
     ///   - callback: The async callback that is executed when the user successfully swipes the indicator.
-    public init(_ title: String, styling: Styling = .default, callback: @escaping () async -> Void) {
+    public init(_ title: String, defaultState: SwipeState = .start, titleOnEnd: String? = nil,styling: Styling = .default, callback: @escaping () async -> Void) {
         self.title = title
+        self.swipeState = defaultState
         self.callback = callback
         self.styling = styling
+        self.titleOnEnd = titleOnEnd
         
         self._offset = .init(initialValue: styling.indicatorSpacing)
     }
     
     public var body: some View {
         GeometryReader { reading in
+            
             let calculatedOffset: CGFloat = swipeState == .swiping ? offset : (swipeState == .start ? styling.indicatorSpacing : (reading.size.width - styling.indicatorSize + styling.indicatorSpacing))
+            
             ZStack(alignment: .leading) {
                 styling.backgroundColor
                     .saturation(isEnabled ? 1 : 0)
@@ -76,14 +82,28 @@ public struct SlideButton: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 
+                Text(titleOnEnd ?? "")
+                    .multilineTextAlignment(styling.textAlignment.textAlignment)
+                    .foregroundColor(styling.textColor)
+                    .frame(maxWidth: max(0, reading.size.width - 2 * styling.indicatorSpacing), alignment: .center)
+                    .padding(.horizontal, styling.indicatorSize)
+                    .shimmerEffect(isEnabled && styling.textShimmers)
+                    .animation(.easeInOut(duration: 1), value: swipeState)
+                    .opacity(swipeState == .end ? 1 : 0)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                
                 Circle()
                     .frame(width: styling.indicatorSize - 2 * styling.indicatorSpacing, height: styling.indicatorSize - 2 * styling.indicatorSpacing)
                     .foregroundColor(isEnabled ? styling.indicatorColor : .gray)
                     .overlay(content: {
                         ZStack {
-                            ProgressView().progressViewStyle(.circular)
-                                .tint(.white)
+                            
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.white)
+                                .font(.system(size: max(0.4 * styling.indicatorSize, 0.5 * styling.indicatorSize - 2 * styling.indicatorSpacing), weight: .semibold))
                                 .opacity(swipeState == .end ? 1 : 0)
+                                .scaleEffect(swipeState == .end ? 1 : 0.01)
+                            
                             Image(systemName: isEnabled ? styling.indicatorSystemName : styling.indicatorDisabledSystemName)
                                 .foregroundColor(.white)
                                 .font(.system(size: max(0.4 * styling.indicatorSize, 0.5 * styling.indicatorSize - 2 * styling.indicatorSpacing), weight: .semibold))
@@ -120,10 +140,8 @@ public struct SlideButton: View {
                                         
                                         await callback()
                                         
-                                        swipeState = .start
                                     }
                                 } else {
-                                    swipeState = .start
                                     #if os(iOS)
                                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                     #endif
@@ -145,7 +163,7 @@ public struct SlideButton: View {
         return (clampedCurrent - start) / (end - start)
     }
     
-    private enum SwipeState {
+    public enum SwipeState {
         case start, swiping, end
     }
 }
@@ -158,7 +176,7 @@ struct SlideButton_Previews: PreviewProvider {
         var body: some View {
             ScrollView {
                 VStack(spacing: 25) {
-                    SlideButton("Centered text and lorem ipsum dolor sit", callback: sliderCallback)
+                    SlideButton("Centered text and lorem ipsum dolor sit", defaultState: .end, callback: sliderCallback)
                     SlideButton("Leading text and no fade", styling: .init(textAlignment: .leading, textFadesOpacity: false), callback: sliderCallback)
                     SlideButton("Center text and no mask", styling: .init(textHiddenBehindIndicator: false), callback: sliderCallback)
                     SlideButton("Remaining space center", styling: .init(indicatorColor: .red, indicatorSystemName: "trash"), callback: sliderCallback)
