@@ -135,15 +135,17 @@ public struct SlideButton: View {
                                     || value.translation.width > reading.size.width - styling.indicatorSize - 2 * styling.indicatorSpacing {
                                     Task {
                                         #if os(iOS)
-                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                        UINotificationFeedbackGenerator().notificationOccurred(.success)
                                         #endif
                                         
                                         await callback()
                                         
                                     }
+                                    
                                 } else {
+                                    swipeState = .start
                                     #if os(iOS)
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
                                     #endif
                                 }
                             }
